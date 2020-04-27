@@ -90,6 +90,19 @@ class CountAgg() extends AggregateFunction[UserBehavior, Long, Long]{
   override def merge(a: Long, b: Long): Long = a + b
 }
 
+// 扩展：自定义求平均值的聚合函数，状态为（sum，count）
+class AvgAgg() extends AggregateFunction[UserBehavior, (Long, Int), Double]{
+  override def add(value: UserBehavior, accumulator: (Long, Int)): (Long, Int) =
+    (accumulator._1 + value.timestamp, accumulator._2 + 1)
+
+  override def createAccumulator(): (Long, Int) = (0L, 0)
+
+  override def getResult(accumulator: (Long, Int)): Double = accumulator._1 / accumulator._2.toDouble
+
+  override def merge(a: (Long, Int), b: (Long, Int)): (Long, Int) =
+    (a._1 + b._1, a._2 + b._2)
+}
+
 // 自定义窗口函数，结合window信息包装成样例类
 class ItemCountWindowResult() extends WindowFunction[Long, ItemViewCount, Tuple, TimeWindow]{
   override def apply(key: Tuple, window: TimeWindow, input: Iterable[Long], out: Collector[ItemViewCount]): Unit = {
@@ -99,6 +112,7 @@ class ItemCountWindowResult() extends WindowFunction[Long, ItemViewCount, Tuple,
     out.collect(ItemViewCount(itemId, windowEnd, count))
   }
 }
+
 
 // 自定义 KeyedProcessFunction
 class TopNHotItems(n: Int) extends KeyedProcessFunction[Tuple, ItemViewCount, String]{
